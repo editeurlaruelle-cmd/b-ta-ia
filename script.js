@@ -6,119 +6,78 @@ document.addEventListener('DOMContentLoaded', () => {
     const toggleSidebarBtn = document.getElementById('toggleSidebar');
     const sidebar = document.getElementById('sidebar');
     const newChatBtn = document.querySelector('.new-chat-btn');
-    
-    const fileInput = document.getElementById('fileInput');
-    const uploadBtn = document.getElementById('uploadBtn');
-    const filePreviewContainer = document.getElementById('filePreviewContainer');
-    const fileNameDisplay = document.getElementById('fileNameDisplay');
-    const removeFileBtn = document.getElementById('removeFileBtn');
-    
-    const settingsBtn = document.getElementById('settingsBtn');
-    const settingsModal = document.getElementById('settingsModal');
-    const closeModalBtn = document.getElementById('closeModalBtn');
 
+    // URL de votre serveur Ngrok ou Flask local
     const API_URL = 'https://unsupercilious-carma-unsymbolized.ngrok-free.dev/';
 
-    let selectedFile = null;
-
+    // --- 1. Gestion de la zone de texte et du bouton d'envoi ---
     userInput.addEventListener('input', () => {
-        toggleSendButton();
-        userInput.style.height = 'auto';
-        userInput.style.height = (userInput.scrollHeight) + 'px';
-    });
-
-    function toggleSendButton() {
-        if (userInput.value.trim() !== "" || selectedFile !== null) {
+        if (userInput.value.trim() !== "") {
             sendBtn.removeAttribute('disabled');
         } else {
             sendBtn.setAttribute('disabled', 'true');
         }
-    }
 
-    uploadBtn.addEventListener('click', () => {
-        fileInput.click();
+        userInput.style.height = 'auto';
+        userInput.style.height = (userInput.scrollHeight) + 'px';
     });
 
-    fileInput.addEventListener('change', (e) => {
-        if (e.target.files.length > 0) {
-            selectedFile = e.target.files[0];
-            fileNameDisplay.textContent = selectedFile.name;
-            filePreviewContainer.style.display = 'flex';
-            toggleSendButton();
-        }
-    });
-
-    removeFileBtn.addEventListener('click', () => {
-        selectedFile = null;
-        fileInput.value = '';
-        filePreviewContainer.style.display = 'none';
-        toggleSendButton();
-    });
-
-    settingsBtn.addEventListener('click', () => {
-        settingsModal.style.display = 'flex';
-    });
-
-    closeModalBtn.addEventListener('click', () => {
-        settingsModal.style.display = 'none';
-    });
-
-    window.addEventListener('click', (e) => {
-        if (e.target === settingsModal) {
-            settingsModal.style.display = 'none';
-        }
-    });
-
+    // --- 2. Fonction principale d'envoi de message ---
     async function sendMessage() {
         const text = userInput.value.trim();
-        if (text === "" && !selectedFile) return;
+        if (text === "") return;
 
         if (welcomeSection && welcomeSection.style.display !== 'none') {
             welcomeSection.style.display = 'none';
         }
 
-        let displayContent = text;
-        if (selectedFile) {
-            displayContent += `<br><small style="color: var(--text-secondary);">📁 Fichier joint : ${selectedFile.name}</small>`;
-        }
-        appendMessage(displayContent, 'user', true);
+        // Afficher le message de l'utilisateur
+        appendMessage(text, 'user');
 
-        const currentFile = selectedFile;
         userInput.value = "";
         userInput.style.height = 'auto';
-        selectedFile = null;
-        fileInput.value = '';
-        filePreviewContainer.style.display = 'none';
         sendBtn.setAttribute('disabled', 'true');
 
-        await callVeyrosAPI(text, currentFile);
+        // Appeler l'API Flask avec support du Streaming
+        await callVeyrosAPI(text);
     }
 
-    function appendMessage(text, sender, isHtml = false) {
+    // --- 3. Ajouter un message dans le conteneur de chat ---
+    function appendMessage(text, sender) {
         const messageDiv = document.createElement('div');
         messageDiv.classList.add('message', sender);
 
         if (sender === 'ai') {
-            messageDiv.innerHTML = `<b>Veyros AI :</b> ${text}`;
+            messageDiv.innerHTML = `<b>Veyros AI :</b> <div class="ai-content">${formaterReponse(text)}</div>`;
         } else {
-            if (isHtml) {
-                messageDiv.innerHTML = text;
-            } else {
-                messageDiv.textContent = text;
-            }
+            messageDiv.textContent = text;
         }
 
         chatContainer.appendChild(messageDiv);
         scrollToBottom();
+        return messageDiv.querySelector('.ai-content') || messageDiv;
     }
 
-    async function callVeyrosAPI(promptText, file) {
-        const typingDiv = document.createElement('div');
-        typingDiv.classList.add('message', 'ai');
-        typingDiv.id = 'typingIndicator';
-        typingDiv.innerHTML = `<b>Veyros AI :</b> <span class="typing-dots"><i>Réflexion en cours...</i></span>`;
-        chatContainer.appendChild(typingDiv);
-        scrollToBottom();
+    // --- 3.1 Formatage des blocs de code et du HTML ---
+    function formaterReponse(texte) {
+        let html = texte.replace(/```([a-zA-Z]*)\n([\s\S]*?)```/g, (match, lang, code) => {
+            const escapedCode = code.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            const codeId = 'code_' + Math.random().toString(36).substr(2, 9);
+            return `<div class="code-box-wrapper" style="background:#090d16; border:1px solid #334155; border-radius:6px; margin:10px 0; overflow:hidden;">
+                <div class="code-header" style="background:#162032; padding:6px 12px; display:flex; justify-content:space-between; align-items:center; font-size:12px; color:#94a3b8;">
+                    <span>${lang ? lang.toUpperCase() : 'CODE'}</span>
+                    <button class="copy-btn" onclick="copierCode('${codeId}')" style="background:#334155; color:white; border:none; padding:3px 8px; border-radius:4px; font-size:11px; cursor:pointer;">Copier</button>
+                </div>
+                <pre><code id="${codeId}" style="font-family:'Courier New',Courier,monospace; display:block; padding:12px; overflow-x:auto; color:#38bdf8; font-size:14px; margin:0;">${escapedCode}</code></pre>
+            </div>`;
+        });
+        return html;
+    }
+
+    // --- 4. Appel de l'API Flask (Support JSON + NDJSON Streaming) ---
+    async function callVeyrosAPI(promptText) {
+        const aiContentDiv = appendMessage('...', 'ai');
+        let texteComplet = "";
 
         try {
             const response = await fetch(API_URL, {
@@ -126,36 +85,77 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ 
-                    prompt: promptText,
-                    fileName: file ? file.name : null
-                })
+                body: JSON.stringify({ prompt: promptText })
             });
 
-            const typingIndicator = document.getElementById('typingIndicator');
-            if (typingIndicator) typingIndicator.remove();
+            const contentType = response.headers.get("content-type");
 
             if (!response.ok) {
-                throw new Error(`Erreur HTTP : ${response.status}`);
+                const errText = await response.text();
+                throw new Error(`Erreur HTTP ${response.status}: ${errText}`);
             }
 
-            const data = await response.json();
-            const aiReply = data.response || data.message || "Réponse reçue de l'API.";
-            
-            appendMessage(aiReply, 'ai');
+            // Cas 1 : Réponse JSON simple (Images, Erreurs, Maintenances)
+            if (contentType && contentType.includes("application/json")) {
+                const data = await response.json();
+                aiContentDiv.innerHTML = formaterReponse(data.response || data.error || "Réponse vide");
+            } 
+            // Cas 2 : Flux de streaming en direct (NDJSON)
+            else if (contentType && (contentType.includes("ndjson") || contentType.includes("stream"))) {
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                
+                aiContentDiv.innerHTML = ""; // Effacer les "..." de chargement
+
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+                    
+                    const chunk = decoder.decode(value, { stream: true });
+                    const lignes = chunk.split('\n');
+                    
+                    for (let ligne of lignes) {
+                        if (ligne.trim() !== "") {
+                            try {
+                                const jsonPart = JSON.parse(ligne);
+                                if (jsonPart.response) {
+                                    texteComplet += jsonPart.response;
+                                    aiContentDiv.innerHTML = formaterReponse(texteComplet);
+                                    scrollToBottom();
+                                }
+                            } catch (e) {
+                                // Ignore les lignes partielles pour éviter tout plantage JSON
+                            }
+                        }
+                    }
+                }
+            } else {
+                // Fallback texte brut
+                const rawText = await response.text();
+                aiContentDiv.innerHTML = formaterReponse(rawText);
+            }
 
         } catch (error) {
-            const typingIndicator = document.getElementById('typingIndicator');
-            if (typingIndicator) typingIndicator.remove();
-            
-            appendMessage(`Erreur de connexion avec l'API : ${error.message}.`, 'ai');
+            aiContentDiv.innerHTML = `⚠️ Erreur de connexion avec l'API : ${error.message}. Vérifie que ton serveur Flask (s.py) est bien actif.`;
         }
     }
 
+    // --- 5. Fonction globale pour copier le code ---
+    window.copierCode = function(id) {
+        const codeEl = document.getElementById(id);
+        if (codeEl) {
+            navigator.clipboard.writeText(codeEl.innerText).then(() => {
+                alert("✅ Code copié dans le presse-papier !");
+            });
+        }
+    };
+
+    // --- 6. Faire défiler le chat vers le bas ---
     function scrollToBottom() {
         chatContainer.scrollTop = chatContainer.scrollHeight;
     }
 
+    // --- 7. Événements clavier et souris ---
     sendBtn.addEventListener('click', sendMessage);
 
     userInput.addEventListener('keydown', (e) => {
@@ -165,12 +165,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // --- 8. Gestion de la barre latérale ---
     if (toggleSidebarBtn && sidebar) {
         toggleSidebarBtn.addEventListener('click', () => {
             sidebar.classList.toggle('collapsed');
         });
     }
 
+    // --- 9. Bouton Nouvelle discussion ---
     if (newChatBtn) {
         newChatBtn.addEventListener('click', () => {
             const messages = chatContainer.querySelectorAll('.message');
@@ -181,9 +183,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             userInput.value = "";
             userInput.style.height = 'auto';
-            selectedFile = null;
-            fileInput.value = '';
-            filePreviewContainer.style.display = 'none';
             sendBtn.setAttribute('disabled', 'true');
         });
     }
