@@ -6,60 +6,123 @@ document.addEventListener('DOMContentLoaded', () => {
     const toggleSidebarBtn = document.getElementById('toggleSidebar');
     const sidebar = document.getElementById('sidebar');
     const newChatBtn = document.querySelector('.new-chat-btn');
+    
+    // Nouveaux éléments (Upload & Paramètres)
+    const fileInput = document.getElementById('fileInput');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const filePreviewContainer = document.getElementById('filePreviewContainer');
+    const fileNameDisplay = document.getElementById('fileNameDisplay');
+    const removeFileBtn = document.getElementById('removeFileBtn');
+    
+    const settingsBtn = document.getElementById('settingsBtn');
+    const settingsModal = document.getElementById('settingsModal');
+    const closeModalBtn = document.getElementById('closeModalBtn');
 
-    // URL de ton serveur Flask local (Remplace 192.168.1.84 par ta propre IP locale si besoin)
     const API_URL = 'https://unsupercilious-carma-unsymbolized.ngrok-free.dev/';
 
-    // --- 1. Gestion de la zone de texte et du bouton d'envoi ---
-    userInput.addEventListener('input', () => {
-        if (userInput.value.trim() !== "") {
-            sendBtn.removeAttribute('disabled');
-        } else {
-            sendBtn.setAttribute('disabled', 'true');
-        }
+    let selectedFile = null;
 
+    // --- 1. Gestion de la zone de texte ---
+    userInput.addEventListener('input', () => {
+        toggleSendButton();
         userInput.style.height = 'auto';
         userInput.style.height = (userInput.scrollHeight) + 'px';
     });
 
-    // --- 2. Fonction principale d'envoi de message ---
+    function toggleSendButton() {
+        if (userInput.value.trim() !== "" || selectedFile !== null) {
+            sendBtn.removeAttribute('disabled');
+        } else {
+            sendBtn.setAttribute('disabled', 'true');
+        }
+    }
+
+    // --- 2. Gestion de l'Upload de Fichiers ---
+    uploadBtn.addEventListener('click', () => {
+        fileInput.click();
+    });
+
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+            selectedFile = e.target.files[0];
+            fileNameDisplay.textContent = selectedFile.name;
+            filePreviewContainer.style.display = 'flex';
+            toggleSendButton();
+        }
+    });
+
+    removeFileBtn.addEventListener('click', () => {
+        selectedFile = null;
+        fileInput.value = '';
+        filePreviewContainer.style.display = 'none';
+        toggleSendButton();
+    });
+
+    // --- 3. Gestion de la Modale Paramètres ---
+    settingsBtn.addEventListener('click', () => {
+        settingsModal.style.display = 'flex';
+    });
+
+    closeModalBtn.addEventListener('click', () => {
+        settingsModal.style.display = 'none';
+    });
+
+    window.addEventListener('click', (e) => {
+        if (e.target === settingsModal) {
+            settingsModal.style.display = 'none';
+        }
+    });
+
+    // --- 4. Fonction principale d'envoi ---
     async function sendMessage() {
         const text = userInput.value.trim();
-        if (text === "") return;
+        if (text === "" && !selectedFile) return;
 
         if (welcomeSection && welcomeSection.style.display !== 'none') {
             welcomeSection.style.display = 'none';
         }
 
-        // Afficher le message de l'utilisateur
-        appendMessage(text, 'user');
+        // Afficher le message utilisateur (avec mention du fichier si présent)
+        let displayContent = text;
+        if (selectedFile) {
+            displayContent += `<br><small style="color: var(--text-secondary);">📁 Fichier joint : ${selectedFile.name}</small>`;
+        }
+        appendMessage(displayContent, 'user', true);
 
+        // Reset inputs
+        const currentFile = selectedFile;
         userInput.value = "";
         userInput.style.height = 'auto';
+        selectedFile = null;
+        fileInput.value = '';
+        filePreviewContainer.style.display = 'none';
         sendBtn.setAttribute('disabled', 'true');
 
-        // Appeler l'API Flask
-        await callVeyrosAPI(text);
+        // Appel API
+        await callVeyrosAPI(text, currentFile);
     }
 
-    // --- 3. Ajouter un message dans le conteneur de chat ---
-    function appendMessage(text, sender) {
+    // --- 5. Ajouter un message dans le chat ---
+    function appendMessage(text, sender, isHtml = false) {
         const messageDiv = document.createElement('div');
         messageDiv.classList.add('message', sender);
 
         if (sender === 'ai') {
             messageDiv.innerHTML = `<b>Veyros AI :</b> ${text}`;
         } else {
-            messageDiv.textContent = text;
+            if (isHtml) {
+                messageDiv.innerHTML = text;
+            } else {
+                messageDiv.textContent = text;
+            }
         }
 
         chatContainer.appendChild(messageDiv);
         scrollToBottom();
     }
 
-    // --- 4. Appel de l'API Flask locale ---
-    async function callVeyrosAPI(promptText) {
-        // Afficher un indicateur de chargement
+    // --- 6. Appel de l'API ---
+    async function callVeyrosAPI(promptText, file) {
         const typingDiv = document.createElement('div');
         typingDiv.classList.add('message', 'ai');
         typingDiv.id = 'typingIndicator';
@@ -68,16 +131,21 @@ document.addEventListener('DOMContentLoaded', () => {
         scrollToBottom();
 
         try {
-            const response = await fetch(API_URL, {
+            let response;
+            
+            // Si tu veux envoyer le fichier en FormData ou le prompt en JSON selon ton backend Flask
+            // Ici on envoie un JSON avec le prompt (adapte si ton Flask gère les FormData)
+            response = await fetch(API_URL, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                // On envoie "prompt" car Flask lit data.get("prompt")
-                body: JSON.stringify({ prompt: promptText })
+                body: JSON.stringify({ 
+                    prompt: promptText,
+                    fileName: file ? file.name : null
+                })
             });
 
-            // Supprimer l'indicateur de chargement
             const typingIndicator = document.getElementById('typingIndicator');
             if (typingIndicator) typingIndicator.remove();
 
@@ -86,27 +154,22 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const data = await response.json();
-            
-            // Récupérer le texte de réponse renvoyé par Flask
             const aiReply = data.response || data.message || "Réponse reçue de l'API.";
             
             appendMessage(aiReply, 'ai');
 
         } catch (error) {
-            // Nettoyer l'indicateur s'il est toujours présent
             const typingIndicator = document.getElementById('typingIndicator');
             if (typingIndicator) typingIndicator.remove();
             
-            appendMessage(`Erreur de connexion avec l'API : ${error.message}. Vérifie que ton serveur Flask (s.py) est bien actif sur le port 5000.`, 'ai');
+            appendMessage(`Erreur de connexion avec l'API : ${error.message}. Vérifie que ton serveur Flask est bien actif.`, 'ai');
         }
     }
 
-    // --- 5. Faire défiler le chat vers le bas ---
     function scrollToBottom() {
         chatContainer.scrollTop = chatContainer.scrollHeight;
     }
 
-    // --- 6. Événements clavier et souris ---
     sendBtn.addEventListener('click', sendMessage);
 
     userInput.addEventListener('keydown', (e) => {
@@ -116,14 +179,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- 7. Gestion de la barre latérale ---
     if (toggleSidebarBtn && sidebar) {
         toggleSidebarBtn.addEventListener('click', () => {
             sidebar.classList.toggle('collapsed');
         });
     }
 
-    // --- 8. Bouton Nouvelle discussion ---
     if (newChatBtn) {
         newChatBtn.addEventListener('click', () => {
             const messages = chatContainer.querySelectorAll('.message');
@@ -134,6 +195,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             userInput.value = "";
             userInput.style.height = 'auto';
+            selectedFile = null;
+            fileInput.value = '';
+            filePreviewContainer.style.display = 'none';
             sendBtn.setAttribute('disabled', 'true');
         });
     }
