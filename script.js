@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const toggleSidebarBtn = document.getElementById('toggleSidebar');
     const sidebar = document.getElementById('sidebar');
     const newChatBtn = document.querySelector('.new-chat-btn');
+    const reportBugBtn = document.getElementById('reportBugBtn');
 
     // URL de ton serveur Flask / Ngrok
     const API_URL = 'https://unsupercilious-carma-unsymbolized.ngrok-free.dev/';
@@ -196,6 +197,35 @@ document.addEventListener('DOMContentLoaded', () => {
             userInput.value = "";
             userInput.style.height = 'auto';
             sendBtn.setAttribute('disabled', 'true');
+        });
+    }
+
+    // --- 10. Gestion du signalement de bug ---
+    if (reportBugBtn) {
+        reportBugBtn.addEventListener('click', async () => {
+            const bugDescription = prompt("Décris le bug rencontré :");
+            if (!bugDescription) return;
+
+            if (welcomeSection && welcomeSection.style.display !== 'none') {
+                welcomeSection.style.display = 'none';
+            }
+            appendMessage(`🐞 Signalement de bug : ${bugDescription}`, 'user');
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ type: 'bug_report', content: bugDescription })
+                });
+                
+                if (response.ok) {
+                    appendMessage("🛠️ **Merci !** Ton rapport de bug a bien été transmis à l'équipe technique.", 'ai');
+                } else {
+                    appendMessage("⚠️ Erreur lors de l'envoi du rapport.", 'ai');
+                }
+            } catch (err) {
+                appendMessage("⚠️ Impossible de contacter le serveur pour envoyer le bug.", 'ai');
+            }
         });
     }
 });
