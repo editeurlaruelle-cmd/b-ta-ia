@@ -19,10 +19,9 @@
                 <span>Nouvelle discussion</span>
             </button>
         </div>
-        <div class="recent-chats">
-            </div>
+        <div class="recent-chats"></div>
         <div class="sidebar-bottom">
-            <div class="chat-item">
+            <div class="chat-item" id="settingsBtn">
                 <span class="material-symbols-outlined" style="vertical-align: middle; margin-right: 8px;">settings</span> Paramètres
             </div>
         </div>
@@ -42,8 +41,17 @@
         </div>
 
         <div class="input-container">
+            <div id="filePreviewContainer" class="file-preview-container" style="display: none;">
+                <span class="material-symbols-outlined">attachment</span>
+                <span id="fileNameDisplay"></span>
+                <button id="removeFileBtn" title="Supprimer le fichier">
+                    <span class="material-symbols-outlined" style="font-size: 16px;">close</span>
+                </button>
+            </div>
+
             <div class="input-box">
-                <button class="action-icon-btn" title="Ajouter une image ou un fichier">
+                <input type="file" id="fileInput" style="display: none;" />
+                <button class="action-icon-btn" id="uploadBtn" title="Ajouter une image ou un fichier">
                     <span class="material-symbols-outlined">add_circle</span>
                 </button>
                 <textarea id="userInput" placeholder="Écrivez un message à Veyros AI..." rows="1"></textarea>
@@ -58,6 +66,25 @@
             </div>
             <div class="disclaimer">
                 Veyros AI peut commettre des erreurs. Vérifiez les informations importantes.
+            </div>
+        </div>
+    </div>
+
+    <div id="settingsModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Paramètres & Crédits</h2>
+                <button class="close-modal-btn" id="closeModalBtn">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="credit-section">
+                    <h3>Crédits</h3>
+                    <p><strong>Créateur :</strong> Roméo</p>
+                    <p><strong>Cocréateur :</strong> Voltek</p>
+                    <p><strong>Développeur API :</strong> Voltek</p>
+                </div>
             </div>
         </div>
     </div>
