@@ -58,8 +58,9 @@ document.addEventListener('DOMContentLoaded', () => {
         return messageDiv.querySelector('.ai-content') || messageDiv;
     }
 
-    // --- 3.1 Formatage des blocs de code et du HTML ---
+    // --- 3.1 Formatage des blocs de code, du gras, des puces et du HTML ---
     function formaterReponse(texte) {
+        // 1. Convertir les blocs de code
         let html = texte.replace(/```([a-zA-Z]*)\n([\s\S]*?)```/g, (match, lang, code) => {
             const escapedCode = code.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
             const codeId = 'code_' + Math.random().toString(36).substr(2, 9);
@@ -71,6 +72,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 <pre><code id="${codeId}" style="font-family:'Courier New',Courier,monospace; display:block; padding:12px; overflow-x:auto; color:#38bdf8; font-size:14px; margin:0;">${escapedCode}</code></pre>
             </div>`;
         });
+
+        // 2. Convertir le texte en gras (**texte**)
+        html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+        // 3. Convertir les puces (- ou •) en listes HTML propres
+        html = html.replace(/^[•\-]\s+(.*)$/gm, '<li>$1</li>');
+        html = html.replace(/(<li>[\s\S]*?<\/li>)/g, '<ul style="margin: 5px 0 5px 20px; padding-left: 0;">$1</ul>');
+        html = html.replace(/<\/ul>\s*<ul[^>]*>/g, '');
+
+        // 4. Convertir les retours à la ligne par des <br>
+        html = html.replace(/\n/g, '<br>');
+
         return html;
     }
 
@@ -91,99 +104,4 @@ document.addEventListener('DOMContentLoaded', () => {
             const contentType = response.headers.get("content-type");
 
             if (!response.ok) {
-                const errText = await response.text();
-                throw new Error(`Erreur HTTP ${response.status}: ${errText}`);
-            }
-
-            // Cas 1 : Réponse JSON simple (Images, Erreurs, Maintenances)
-            if (contentType && contentType.includes("application/json")) {
-                const data = await response.json();
-                aiContentDiv.innerHTML = formaterReponse(data.response || data.error || "Réponse vide");
-            } 
-            // Cas 2 : Flux de streaming en direct (NDJSON)
-            else if (contentType && (contentType.includes("ndjson") || contentType.includes("stream"))) {
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder();
-                
-                aiContentDiv.innerHTML = ""; // Effacer les "..." de chargement
-
-                while (true) {
-                    const { value, done } = await reader.read();
-                    if (done) break;
-                    
-                    const chunk = decoder.decode(value, { stream: true });
-                    const lignes = chunk.split('\n');
-                    
-                    for (let ligne of lignes) {
-                        if (ligne.trim() !== "") {
-                            try {
-                                const jsonPart = JSON.parse(ligne);
-                                if (jsonPart.response) {
-                                    texteComplet += jsonPart.response;
-                                    aiContentDiv.innerHTML = formaterReponse(texteComplet);
-                                    scrollToBottom();
-                                }
-                            } catch (e) {
-                                // Ignore les lignes partielles pour éviter tout plantage JSON
-                            }
-                        }
-                    }
-                }
-            } else {
-                // Fallback texte brut
-                const rawText = await response.text();
-                aiContentDiv.innerHTML = formaterReponse(rawText);
-            }
-
-        } catch (error) {
-            aiContentDiv.innerHTML = `⚠️ Erreur de connexion avec l'API : ${error.message}. Vérifie que ton serveur Flask (s.py) est bien actif.`;
-        }
-    }
-
-    // --- 5. Fonction globale pour copier le code ---
-    window.copierCode = function(id) {
-        const codeEl = document.getElementById(id);
-        if (codeEl) {
-            navigator.clipboard.writeText(codeEl.innerText).then(() => {
-                alert("✅ Code copié dans le presse-papier !");
-            });
-        }
-    };
-
-    // --- 6. Faire défiler le chat vers le bas ---
-    function scrollToBottom() {
-        chatContainer.scrollTop = chatContainer.scrollHeight;
-    }
-
-    // --- 7. Événements clavier et souris ---
-    sendBtn.addEventListener('click', sendMessage);
-
-    userInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            sendMessage();
-        }
-    });
-
-    // --- 8. Gestion de la barre latérale ---
-    if (toggleSidebarBtn && sidebar) {
-        toggleSidebarBtn.addEventListener('click', () => {
-            sidebar.classList.toggle('collapsed');
-        });
-    }
-
-    // --- 9. Bouton Nouvelle discussion ---
-    if (newChatBtn) {
-        newChatBtn.addEventListener('click', () => {
-            const messages = chatContainer.querySelectorAll('.message');
-            messages.forEach(msg => msg.remove());
-            
-            if (welcomeSection) {
-                welcomeSection.style.display = 'flex';
-            }
-            userInput.value = "";
-            userInput.style.height = 'auto';
-            sendBtn.setAttribute('disabled', 'true');
-        });
-    }
-});
+                const errText = await response.
