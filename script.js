@@ -7,7 +7,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const sidebar = document.getElementById('sidebar');
     const newChatBtn = document.querySelector('.new-chat-btn');
     
-    // Nouveaux éléments (Upload & Paramètres)
     const fileInput = document.getElementById('fileInput');
     const uploadBtn = document.getElementById('uploadBtn');
     const filePreviewContainer = document.getElementById('filePreviewContainer');
@@ -22,7 +21,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let selectedFile = null;
 
-    // --- 1. Gestion de la zone de texte ---
     userInput.addEventListener('input', () => {
         toggleSendButton();
         userInput.style.height = 'auto';
@@ -37,7 +35,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- 2. Gestion de l'Upload de Fichiers ---
     uploadBtn.addEventListener('click', () => {
         fileInput.click();
     });
@@ -58,7 +55,6 @@ document.addEventListener('DOMContentLoaded', () => {
         toggleSendButton();
     });
 
-    // --- 3. Gestion de la Modale Paramètres ---
     settingsBtn.addEventListener('click', () => {
         settingsModal.style.display = 'flex';
     });
@@ -73,7 +69,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- 4. Fonction principale d'envoi ---
     async function sendMessage() {
         const text = userInput.value.trim();
         if (text === "" && !selectedFile) return;
@@ -82,14 +77,12 @@ document.addEventListener('DOMContentLoaded', () => {
             welcomeSection.style.display = 'none';
         }
 
-        // Afficher le message utilisateur (avec mention du fichier si présent)
         let displayContent = text;
         if (selectedFile) {
             displayContent += `<br><small style="color: var(--text-secondary);">📁 Fichier joint : ${selectedFile.name}</small>`;
         }
         appendMessage(displayContent, 'user', true);
 
-        // Reset inputs
         const currentFile = selectedFile;
         userInput.value = "";
         userInput.style.height = 'auto';
@@ -98,11 +91,9 @@ document.addEventListener('DOMContentLoaded', () => {
         filePreviewContainer.style.display = 'none';
         sendBtn.setAttribute('disabled', 'true');
 
-        // Appel API
         await callVeyrosAPI(text, currentFile);
     }
 
-    // --- 5. Ajouter un message dans le chat ---
     function appendMessage(text, sender, isHtml = false) {
         const messageDiv = document.createElement('div');
         messageDiv.classList.add('message', sender);
@@ -121,21 +112,16 @@ document.addEventListener('DOMContentLoaded', () => {
         scrollToBottom();
     }
 
-    // --- 6. Appel de l'API ---
     async function callVeyrosAPI(promptText, file) {
         const typingDiv = document.createElement('div');
         typingDiv.classList.add('message', 'ai');
         typingDiv.id = 'typingIndicator';
-        typingDiv.innerHTML = `<b>Veyros AI :</b> <i>Réflexion en cours...</i>`;
+        typingDiv.innerHTML = `<b>Veyros AI :</b> <span class="typing-dots"><i>Réflexion en cours...</i></span>`;
         chatContainer.appendChild(typingDiv);
         scrollToBottom();
 
         try {
-            let response;
-            
-            // Si tu veux envoyer le fichier en FormData ou le prompt en JSON selon ton backend Flask
-            // Ici on envoie un JSON avec le prompt (adapte si ton Flask gère les FormData)
-            response = await fetch(API_URL, {
+            const response = await fetch(API_URL, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -162,7 +148,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const typingIndicator = document.getElementById('typingIndicator');
             if (typingIndicator) typingIndicator.remove();
             
-            appendMessage(`Erreur de connexion avec l'API : ${error.message}. Vérifie que ton serveur Flask est bien actif.`, 'ai');
+            appendMessage(`Erreur de connexion avec l'API : ${error.message}.`, 'ai');
         }
     }
 
