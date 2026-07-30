@@ -7,6 +7,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const sidebar = document.getElementById('sidebar');
     const newChatBtn = document.querySelector('.new-chat-btn');
     const reportBugBtn = document.getElementById('reportBugBtn');
+    
+    // Éléments pour les Paramètres
+    const settingsBtn = document.getElementById('settingsBtn');
+    const settingsModal = document.getElementById('settingsModal');
+    const closeModalBtn = document.getElementById('closeModalBtn');
 
     // URL de ton serveur Flask / Ngrok
     const API_URL = 'https://unsupercilious-carma-unsymbolized.ngrok-free.dev/';
@@ -225,6 +230,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } catch (err) {
                 appendMessage("⚠️ Impossible de contacter le serveur pour envoyer le bug.", 'ai');
+            }
+        });
+    }
+
+    // --- 11. Gestion de la modale Paramètres ---
+    if (settingsBtn && settingsModal) {
+        settingsBtn.addEventListener('click', () => {
+            settingsModal.style.display = 'flex';
+        });
+    }
+
+    if (closeModalBtn && settingsModal) {
+        closeModalBtn.addEventListener('click', () => {
+            settingsModal.style.display = 'none';
+        });
+    }
+
+    if (settingsModal) {
+        window.addEventListener('click', (event) => {
+            if (event.target === settingsModal) {
+                settingsModal.style.display = 'none';
             }
         });
     }
